@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>⬇️ VD Downloader</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1115;--card:#181c24;--line:#262c38;--txt:#eef1f6;--dim:#9aa3b2;
+--acc:#ff5a5a;--acc2:#ff8a5a;--ok:#3ddc84}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,"Segoe UI",Roboto,"Noto Sans Myanmar",sans-serif;min-height:100vh}
+.wrap{max-width:520px;margin:0 auto;padding:18px 14px 40px}
+header{text-align:center;margin-bottom:16px}
+h1{font-size:1.6rem}
+.sub{color:var(--dim);margin:4px 0 10px}
+.srv{display:inline-block;font-size:.8rem;padding:5px 14px;border-radius:20px;background:#222;border:1px solid var(--line)}
+.srv.checking{color:#ffcf5a}.srv.ok{color:var(--ok);border-color:#1f4d34}.srv.down{color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.lbl{display:block;font-size:.85rem;color:var(--dim);margin-bottom:8px}
+.row{display:flex;gap:8px}
+input[type=url],input[type=password]{flex:1;background:#0c0e12;border:1px solid var(--line);color:var(--txt);
+border-radius:12px;padding:13px;font-size:1rem;min-width:0}
+input:focus{outline:none;border-color:var(--acc)}
+.iconbtn{background:#222;border:1px solid var(--line);border-radius:12px;font-size:1.3rem;padding:0 14px;cursor:pointer}
+.primary{width:100%;margin-top:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;
+color:#fff;font-size:1.05rem;font-weight:700;border-radius:12px;padding:14px;cursor:pointer}
+.primary:active{transform:scale(.98)}
+.primary.big{font-size:1.15rem}
+.primary:disabled{opacity:.5}
+.pchip{margin-top:10px;font-size:.85rem;color:var(--dim)}
+.hidden{display:none!important}
+.err{background:#2a1414;border:1px solid #5a2020;color:#ffb3b3;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.95rem}
+.res-top{display:flex;gap:12px;margin-bottom:12px}
+#cover{width:110px;height:150px;object-fit:cover;border-radius:10px;background:#0c0e12;flex-shrink:0}
+.res-meta{min-width:0}
+.platform{display:inline-block;font-size:.75rem;background:#222;border:1px solid var(--line);
+color:#ffd27a;border-radius:20px;padding:3px 10px;margin-bottom:6px}
+.title{font-weight:700;font-size:.95rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;
+-webkit-box-orient:vertical;overflow:hidden}
+.author,.dur{font-size:.8rem;color:var(--dim);margin-top:4px}
+.quals{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+.q{border:1px solid var(--line);background:#0c0e12;color:var(--txt);border-radius:20px;
+padding:8px 16px;font-size:.9rem;cursor:pointer}
+.q.sel{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.q small{opacity:.7;margin-left:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{background:#0c0e12;border:1px solid var(--line);border-radius:20px;padding:6px 12px;font-size:.82rem}
+.settings summary{cursor:pointer;font-size:.95rem}
+.settings input{width:100%;margin-top:10px}
+footer{text-align:center;color:var(--dim);font-size:.78rem;margin-top:8px}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>⬇️ VD Downloader</h1>
+    <p class="sub">link ချပေးရုံနဲ့ video ရမယ်</p>
+    <div id="srv" class="srv checking">ဆာဗာ စစ်နေတယ်…</div>
+  </header>
+
+  <section class="card">
+    <label class="lbl">video link ထည့်ပါ</label>
+    <div class="row">
+      <input id="url" type="url" inputmode="url" placeholder="https://… link ကို ဒီမှာ ကပ်ပါ"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="pasteBtn" class="iconbtn" title="ကပ်ရန်">📋</button>
+    </div>
+    <div id="pchip" class="pchip hidden"></div>
+    <button id="goBtn" class="primary">🔍 စစ်ဆေးရန်</button>
+  </section>
+
+  <div id="err" class="err hidden"></div>
+
+  <section id="result" class="card hidden">
+    <div class="res-top">
+      <img id="cover" alt="">
+      <div class="res-meta">
+        <div id="platform" class="platform"></div>
+        <div id="title" class="title"></div>
+        <div id="author" class="author"></div>
+        <div id="dur" class="dur"></div>
+      </div>
+    </div>
+    <div id="qwrap">
+      <label class="lbl">အရည်အသွေး ရွေးပါ</label>
+      <div id="quals" class="quals"></div>
+    </div>
+    <button id="dlBtn" class="primary big">⬇️ ဒေါင်းလုဒ်</button>
+    <button id="zipBtn" class="primary big hidden">🖼️ ပုံတွေ zip နဲ့ ဒေါင်းလုဒ်</button>
+  </section>
+
+  <section class="card">
+    <label class="lbl">ရတဲ့ platform တွေ</label>
+    <div class="chips">
+      <span>📕 RedNote 小红书</span><span>🎵 Douyin</span><span>📺 Bilibili</span>
+      <span>🌐 Weibo</span><span>⚡ Kuaishou</span><span>🎶 TikTok</span>
+      <span>▶️ YouTube</span><span>📘 Facebook</span><span>📸 Instagram</span>
+      <span>✖️ X</span><span>📌 Pinterest</span>
+    </div>
+  </section>
+
+  <details class="card settings">
+    <summary>⚙️ ဆက်တင်</summary>
+    <label class="lbl">Token (ဆာဗာမှာ DL_TOKEN ထားရင်)</label>
+    <input id="token" type="password" placeholder="token…" autocomplete="off">
+  </details>
+
+  <footer>ကိုယ်ပိုင်သုံးဖို့ပါ — သူများဟာ ခိုးယူဖြန့်တာမျိုး မလုပ်ပါနဲ့ ✌️</footer>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const urlIn = $('url'), goBtn = $('goBtn'), dlBtn = $('dlBtn'), zipBtn = $('zipBtn');
+const errBox = $('err'), resCard = $('result');
+let cur = null, selQ = 'best';
+
+const token = () => ($('token').value || localStorage.getItem('vd_token') || '').trim();
+$('token').value = localStorage.getItem('vd_token') || '';
+$('token').addEventListener('change', e => localStorage.setItem('vd_token', e.target.value.trim()));
+
+// ဆာဗာ အသက်ရှင်လား စစ်
+async function ping() {
+  const el = $('srv');
+  try {
+    const r = await fetch('health', {cache: 'no-store'});
+    if (r.ok) { el.textContent = 'ဆာဗာ အဆင်သင့် ✅'; el.className = 'srv ok'; return; }
+    throw 0;
+  } catch { el.textContent = 'ဆာဗာ နိုးနေတုန်း… ခဏစောင့် ⏳'; el.className = 'srv checking'; }
+  setTimeout(ping, 8000);
+}
+ping();
+
+// platform ခန့်မှန်း
+function guessPlatform(u) {
+  const h = (u.split('/')[2] || '').toLowerCase();
+  if (/xiaohongshu|xhslink/.test(h)) return '📕 RedNote';
+  if (/douyin/.test(h)) return '🎵 Douyin';
+  if (/bilibili|b23\.tv/.test(h)) return '📺 Bilibili';
+  if (/weibo/.test(h)) return '🌐 Weibo';
+  if (/kuaishou|gifshow/.test(h)) return '⚡ Kuaishou';
+  if (/tiktok|vt\.tiktok|vm\.tiktok/.test(h)) return '🎶 TikTok';
+  if (/youtu/.test(h)) return '▶️ YouTube';
+  if (/facebook|fb\.watch/.test(h)) return '📘 Facebook';
+  if (/instagram/.test(h)) return '📸 Instagram';
+  if (/(^|\.)x\.com|twitter/.test(h)) return '✖️ X';
+  if (/pinterest|pin\.it/.test(h)) return '📌 Pinterest';
+  return '';
+}
+urlIn.addEventListener('input', () => {
+  const p = guessPlatform(urlIn.value.trim());
+  $('pchip').textContent = p;
+  $('pchip').classList.toggle('hidden', !p);
+});
+
+$('pasteBtn').onclick = async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (t) { urlIn.value = t.trim(); urlIn.dispatchEvent(new Event('input')); }
+  } catch { showErr('clipboard ဖတ်မရဘူး — ကိုယ်တိုင် ကပ်ပေးပါ'); }
+};
+
+function showErr(m) { errBox.textContent = m; errBox.classList.remove('hidden'); }
+function hideErr() { errBox.classList.add('hidden'); }
+function fmtSize(b) {
+  if (!b) return '';
+  const mb = b / 1048576;
+  return mb >= 1 ? ` · ${mb.toFixed(0)}MB` : ` · ${(b/1024).toFixed(0)}KB`;
+}
+function fmtDur(s) {
+  if (!s) return '';
+  s = Math.round(s); return `⏱ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+goBtn.onclick = async () => {
+  const url = urlIn.value.trim();
+  if (!/^https?:\/\//i.test(url)) return showErr('link အရင်ထည့်ပါ');
+  hideErr(); resCard.classList.add('hidden');
+  goBtn.disabled = true; goBtn.textContent = 'ရှာနေတယ်… ⏳';
+  try {
+    const r = await fetch('api/resolve', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url, token: token()})
+    });
+    const j = await r.json();
+    if (!j.ok) return showErr(j.error || 'မရဘူး');
+    cur = j; selQ = (j.qualities[0] || {}).id || 'best';
+    $('platform').textContent = j.platform;
+    $('title').textContent = j.title || 'video';
+    $('author').textContent = j.author ? '👤 ' + j.author : '';
+    $('dur').textContent = fmtDur(j.duration) + (j.kind === 'images' ? ` · 🖼️ ${j.image_count} ပုံ` : '');
+    $('cover').src = j.cover || '';
+    $('cover').style.display = j.cover ? '' : 'none';
+    const qw = $('quals'); qw.innerHTML = '';
+    j.qualities.forEach(qq => {
+      const b = document.createElement('button');
+      b.className = 'q' + (qq.id === selQ ? ' sel' : '');
+      b.innerHTML = `${qq.label}<small>${fmtSize(qq.size)}</small>`;
+      b.onclick = () => { selQ = qq.id; [...qw.children].forEach(x => x.classList.remove('sel')); b.classList.add('sel'); };
+      qw.appendChild(b);
+    });
+    $('qwrap').style.display = j.kind === 'video' ? '' : 'none';
+    dlBtn.classList.toggle('hidden', j.kind !== 'video');
+    zipBtn.classList.toggle('hidden', j.kind !== 'images');
+    resCard.classList.remove('hidden');
+    resCard.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  } catch { showErr('ဆာဗာနဲ့ ချိတ်မရဘူး — ပြန်နှိပ်ကြည့်ပါ'); }
+  finally { goBtn.disabled = false; goBtn.textContent = '🔍 စစ်ဆေးရန်'; }
+};
+
+function dlUrl(path) {
+  const p = new URLSearchParams({url: cur.url, t: cur.title || 'video', token: token()});
+  if (path === 'api/dl') p.set('q', selQ);
+  return path + '?' + p.toString();
+}
+dlBtn.onclick = () => { if (cur) location.href = dlUrl('api/dl'); };
+zipBtn.onclick = () => { if (cur) location.href = dlUrl('api/zip'); };
+
+</script>
+</body>
+</html>

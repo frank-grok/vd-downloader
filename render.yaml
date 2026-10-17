@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: vd-downloader
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --timeout 600 --workers 2
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      # DL_TOKEN: public URL မို့ token ထားတာ ပိုလုံခြုံတယ်.
+      # Render dashboard → Environment → Add: DL_TOKEN = <ကိုယ်ကြိုက်တဲ့ စကားဝှက်>
+      - key: DL_TOKEN
+        value: ""
+      # RedNote/Douyin/Bilibili တို့ကို ယူပေးတဲ့ 解析 API (လိုရင် လဲလို့ရတယ်)
+      - key: PARSE_API
+        value: https://www.yhqsj.cn/api/short_videos.php?url=
+      - key: MAX_MB
+        value: "500"
