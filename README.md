@@ -9,6 +9,8 @@ Engine နှစ်မျိုးနဲ့:
 
 1. **yt-dlp engine** — TikTok, YouTube/Shorts, Facebook, Instagram, X, Pinterest.
    ဆာဗာပေါ်မှာ yt-dlp တိုက်ရိုက် run တယ်။
+   YouTube က datacenter IP ကို bot-check လုပ်လို့ android/ios client args နဲ့
+   ယူတယ် (Shorts ဆို 360p ရတတ်တယ်); yt-dlp မရရင် parse API ကို fallback ယူတယ်။
 2. **parse-API engine** — RedNote, Douyin, Bilibili, Weibo, Kuaishou။
    ဒီ China platform တွေက datacenter IP (Render လို) ကို security wall ချထားလို့
    ဆာဗာက တိုက်ရိုက်ယူမရဘူး။ ဒါကြောင့် ပြင်ပ 解析 API (`PARSE_API`) ကနေတစ်ဆင့်
@@ -42,6 +44,11 @@ Engine နှစ်မျိုးနဲ့:
 | `PARSE_API` | `https://www.yhqsj.cn/api/short_videos.php?url=` | RedNote/Douyin/Bilibili 用 解析 API။ သေသွားရင် ဒီ format (`?url=` + JSON `{code, data:{url,title,cover}}`) နဲ့ညီတဲ့ API အသစ် လဲထည့် |
 | `MAX_MB` | `500` | တစ်ဖိုင်ကို အများဆုံး MB |
 | `YTDLP_EXTRA_ARGS` | _(empty)_ | လိုရင် yt-dlp command မှာ ထည့်မယ့် args (ဥပမာ proxy နောက်က စမ်းရင် `--no-check-certificate`) |
+
+## Debug
+
+`/api/resolve?debug=1` — parse API ရဲ့ အဖြေအတိအကျ ပြန်ပေးတယ်
+(ဘာကြောင့်မရလဲ စစ်ဖို့)။
 
 ## Local run
 

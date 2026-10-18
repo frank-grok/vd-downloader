@@ -72,11 +72,17 @@ YTDLP_ENGINE = {
 }
 KNOWN = {**API_ENGINE, **YTDLP_ENGINE}
 
+YT_DOMAINS = {"youtube.com", "youtu.be"}
+# YouTube က datacenter IP ကို bot-check လုပ်လို့ android/ios client နဲ့မှ ရတယ်
+YT_ARGS = ["--extractor-args", "youtube:player_client=android,ios,mweb"]
+
 ERR = {
     "bad_url": "link မမှန်ဘူး — app ထဲက Copy Link နဲ့ အပြည့်အစုံ ကူးလာပါ",
     "unsupported": "ဒီ site ကို မထောက်ပံ့သေးဘူး",
     "not_found": "video ရှာမတွေ့ဘူး — link က public video ဟုတ်မဟုတ် စစ်ကြည့်ပါ",
     "private": "private/deleted video မို့ ယူမရဘူး",
+    "bot": "YouTube က server ကို ခဏ block ထားတယ် — ၁ မိနစ်နေပြန်နှိပ်",
+    "api_down": "parse server ချိတ်မရဘူး — ခဏနေပြန်နှိပ်",
     "timeout": "ကြာလွန်းလို့ ရပ်လိုက်တယ် — ခဏနေပြန်နှိပ်",
     "too_big": f"file ကြီးလွန်းတယ် ({MAX_MB}MB အထိပဲရတယ်)",
     "parse_fail": "parse မရဘူး — link အသစ်ကူးပြီး ပြန်စမ်းကြည့်ပါ",
@@ -151,17 +157,19 @@ def ytdlp_extra():
 
 # ---------------------------------------------------------------- parse-API engine
 def api_parse(url):
-    """ပြင်ပ 解析 API ကို ခေါ် → normalized dict (သို့) None."""
+    """ပြင်ပ 解析 API ကို ခေါ် → (info|None, status, api_msg)."""
     try:
         r = requests.get(PARSE_API + quote(url, safe=""),
                          timeout=RESOLVE_TIMEOUT,
                          headers={"User-Agent": UA})
         j = r.json()
     except Exception:
-        return None
+        return None, "unreachable", ""
+    code = j.get("code")
+    msg = str(j.get("msg") or j.get("message") or "")
     data = j.get("data")
-    if not data or isinstance(data, list):
-        return None
+    if code not in (0, 200) or not data or isinstance(data, list):
+        return None, "api_fail", msg
     if isinstance(data, dict):
         video_url = pick(data, "url", "video_url", "play_url", "videoUrl",
                          "nwm_url", "download_url")
@@ -169,7 +177,7 @@ def api_parse(url):
         if isinstance(backups, dict):
             backups = list(backups.values())
         images = data.get("images") or data.get("image_list") or data.get("pics") or []
-        return {
+        info = {
             "title": pick(data, "title", "desc", "description") or "video",
             "author": pick(data, "author", "nickname", "uploader") or "",
             "cover": pick(data, "cover", "cover_url", "thumbnail", "pic") or "",
@@ -179,7 +187,22 @@ def api_parse(url):
             "images": [i if isinstance(i, str) else pick(i, "url", "src")
                        for i in images if isinstance(i, (str, dict))][:20],
         }
-    return None
+        if not info["video_url"] and not info["images"]:
+            return None, "api_fail", msg
+        return info, "ok", msg
+    return None, "api_fail", msg
+
+
+def api_parse_retry(url, resolved_url):
+    """resolved URL နဲ့မရရင် မူရင်း URL နဲ့ တစ်ခါထပ်စမ်း."""
+    info, status, msg = api_parse(resolved_url)
+    if info:
+        return info, status, msg, resolved_url
+    if resolved_url != url:
+        info2, status2, msg2 = api_parse(url)
+        if info2:
+            return info2, status2, msg2, url
+    return None, status, msg, resolved_url
 
 
 # ---------------------------------------------------------------- yt-dlp engine
@@ -188,12 +211,16 @@ def ytdlp_json(url):
            + ["--no-playlist", "--no-warnings", "--skip-download",
               "--socket-timeout", "25", "--extractor-retries", "2",
               "--dump-json", url])
+    if base_domain(host_of(url)) in YT_DOMAINS:
+        cmd[1:1] = YT_ARGS
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=RESOLVE_TIMEOUT)
     except subprocess.TimeoutExpired:
         return None, "timeout"
     if p.returncode != 0:
         msg = (p.stderr or "").lower()
+        if "not a bot" in msg or "sign in to confirm" in msg:
+            return None, "bot"
         if "private" in msg or "login" in msg or "sign in" in msg:
             return None, "private"
         if "unsupported url" in msg:
@@ -234,6 +261,8 @@ def ytdlp_download(url, quality, tmpdir):
               "--max-filesize", f"{MAX_MB}M",
               "-f", fmt, "--merge-output-format", "mp4",
               "-o", out, url])
+    if base_domain(host_of(url)) in YT_DOMAINS:
+        cmd[1:1] = YT_ARGS
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
     except subprocess.TimeoutExpired:
@@ -265,11 +294,12 @@ def resolve():
     if denied:
         return denied
     body = request.get_json(silent=True) or {}
-    url = (body.get("url") or "").strip()
-    if not valid_url(url):
+    orig_url = (body.get("url") or "").strip()
+    debug = request.args.get("debug") == "1"
+    if not valid_url(orig_url):
         return jsonify(ok=False, error=ERR["bad_url"])
 
-    url = resolve_url(url)
+    url = resolve_url(orig_url)
     host = host_of(url)
     domain = base_domain(host)
     engine = "api" if domain in API_ENGINE else ("ytdlp" if domain in YTDLP_ENGINE else None)
@@ -277,35 +307,65 @@ def resolve():
         # မသိတဲ့ domain — yt-dlp နဲ့ အရင်စမ်းကြည့်
         engine = "ytdlp"
     platform = KNOWN.get(domain, domain or "unknown")
+    dbg = {"resolved": url} if debug else None
 
     if engine == "api":
-        info = api_parse(url)
-        if not info or (not info["video_url"] and not info["images"]):
-            return jsonify(ok=False, error=ERR["not_found"], platform=platform)
+        info, status, api_msg, used = api_parse_retry(orig_url, url)
+        if dbg is not None:
+            dbg.update(api_status=status, api_msg=api_msg[:120], via=used)
+        if not info:
+            err_key = "api_down" if status == "unreachable" else "not_found"
+            resp = jsonify(ok=False, error=ERR[err_key], platform=platform)
+            if dbg is not None:
+                resp = jsonify(ok=False, error=ERR[err_key], platform=platform, debug=dbg)
+            return resp
         kind = "video" if info["video_url"] else "images"
         quals = []
         if kind == "video":
             quals = [{"id": "best", "label": "အကောင်းဆုံး", "size": 0}]
             for i, b in enumerate(info["backups"][:3]):
                 quals.append({"id": f"alt{i}", "label": f"ရွေးချယ်စရာ {i+1}", "size": 0})
-        return jsonify(ok=True, engine="api", platform=platform, kind=kind,
-                       title=info["title"], author=info["author"],
-                       cover=info["cover"], duration=info["duration"],
-                       qualities=quals, image_count=len(info["images"]),
-                       url=url)
+        out = dict(ok=True, engine="api", platform=platform, kind=kind,
+                   title=info["title"], author=info["author"],
+                   cover=info["cover"], duration=info["duration"],
+                   qualities=quals, image_count=len(info["images"]),
+                   url=used)
+        if dbg is not None:
+            out["debug"] = dbg
+        return jsonify(out)
 
     info, err = ytdlp_json(url)
+    if err and domain in YT_DOMAINS:
+        # YouTube fallback — parse API ကနေတစ်ဆင့်
+        ainfo, status, api_msg, used = api_parse_retry(orig_url, url)
+        if dbg is not None:
+            dbg.update(ytdlp_err=err, api_status=status, api_msg=api_msg[:120])
+        if ainfo and ainfo["video_url"]:
+            out = dict(ok=True, engine="api", platform=platform, kind="video",
+                       title=ainfo["title"], author=ainfo["author"],
+                       cover=ainfo["cover"], duration=ainfo["duration"],
+                       qualities=[{"id": "best", "label": "အကောင်းဆုံး", "size": 0}],
+                       image_count=0, url=used)
+            if dbg is not None:
+                out["debug"] = dbg
+            return jsonify(out)
     if err:
-        return jsonify(ok=False, error=ERR.get(err, ERR["parse_fail"]), platform=platform)
+        out = dict(ok=False, error=ERR.get(err, ERR["parse_fail"]), platform=platform)
+        if dbg is not None:
+            out["debug"] = dbg
+        return jsonify(out)
     quals = ytdlp_qualities(info)
     if not quals:
         quals = [{"id": "best", "label": "အကောင်းဆုံး", "size": 0}]
-    return jsonify(ok=True, engine="ytdlp", platform=platform, kind="video",
-                   title=info.get("title") or "video",
-                   author=info.get("uploader") or info.get("channel") or "",
-                   cover=info.get("thumbnail") or "",
-                   duration=info.get("duration") or 0,
-                   qualities=quals, url=url)
+    out = dict(ok=True, engine="ytdlp", platform=platform, kind="video",
+               title=info.get("title") or "video",
+               author=info.get("uploader") or info.get("channel") or "",
+               cover=info.get("thumbnail") or "",
+               duration=info.get("duration") or 0,
+               qualities=quals, url=url)
+    if dbg is not None:
+        out["debug"] = dbg
+    return jsonify(out)
 
 
 def stream_url(url, referer=""):
@@ -313,6 +373,25 @@ def stream_url(url, referer=""):
     r = requests.get(url, stream=True, timeout=60, headers=headers)
     r.raise_for_status()
     return r
+
+
+def stream_api_video(vurl, title, referer):
+    """parse-API က ပေးတဲ့直链 ကို client ဆီ stream လုပ်."""
+    try:
+        r = stream_url(vurl, referer=referer)
+    except Exception:
+        return jsonify(ok=False, error=ERR["timeout"]), 502
+    length = r.headers.get("Content-Length")
+    if length and int(length) > MAX_MB * 1024 * 1024:
+        r.close()
+        return jsonify(ok=False, error=ERR["too_big"]), 413
+    fname = safe_filename(title)
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"}
+    if length:
+        headers["Content-Length"] = length
+    return Response(r.iter_content(chunk_size=1024 * 256),
+                    mimetype="video/mp4", headers=headers,
+                    direct_passthrough=True)
 
 
 @app.get("/api/dl")
@@ -328,7 +407,9 @@ def dl():
 
     domain = base_domain(host_of(url))
     if domain in API_ENGINE:
-        info = api_parse(url)
+        info, status, _msg = api_parse(url)
+        if status == "unreachable":
+            return jsonify(ok=False, error=ERR["api_down"]), 502
         if not info or not info["video_url"]:
             return jsonify(ok=False, error=ERR["not_found"]), 502
         vurl = info["video_url"]
@@ -337,25 +418,16 @@ def dl():
                 vurl = info["backups"][int(q[3:])] or vurl
             except (IndexError, ValueError):
                 pass
-        try:
-            r = stream_url(vurl, referer=url)
-        except Exception:
-            return jsonify(ok=False, error=ERR["timeout"]), 502
-        length = r.headers.get("Content-Length")
-        if length and int(length) > MAX_MB * 1024 * 1024:
-            r.close()
-            return jsonify(ok=False, error=ERR["too_big"]), 413
-        fname = safe_filename(title or info["title"])
-        headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(fname)}"}
-        if length:
-            headers["Content-Length"] = length
-        return Response(r.iter_content(chunk_size=1024 * 256),
-                        mimetype="video/mp4", headers=headers,
-                        direct_passthrough=True)
+        return stream_api_video(vurl, title or info["title"], url)
 
     # yt-dlp engine — file ဒေါင်းပြီးမှ ပြန် serve လုပ်
     tmpdir = tempfile.mkdtemp(prefix="vddl_")
     path, err = ytdlp_download(url, q, tmpdir)
+    if err and domain in YT_DOMAINS:
+        # YouTube fallback — parse API直链 ကို stream လုပ်
+        info, status, _msg = api_parse(url)
+        if info and info["video_url"]:
+            return stream_api_video(info["video_url"], title, url)
     if err:
         return jsonify(ok=False, error=ERR.get(err, ERR["parse_fail"])), 502
     fname = safe_filename(title)
