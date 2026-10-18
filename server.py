@@ -343,9 +343,12 @@ def ytdlp_download(url, quality, tmpdir):
 
 
 # ---------------------------------------------------------------- routes
+VERSION = "2026-10-18d"
+
+
 @app.get("/health")
 def health():
-    return jsonify(ok=True)
+    return jsonify(ok=True, v=VERSION)
 
 
 @app.get("/")
@@ -380,7 +383,10 @@ def resolve():
             dbg.update(api_status=status, api_msg=api_msg[:120], via=used)
         if not info:
             err_key = "api_down" if status == "unreachable" else "not_found"
-            out = dict(ok=False, error=ERR[err_key], platform=platform)
+            emsg = ERR[err_key]
+            if domain in ("xiaohongshu.com", "xhslink.com") and err_key == "not_found":
+                emsg += " — အောက်က 📕 bookmarklet နည်းနဲ့ စမ်းကြည့်ပါ"
+            out = dict(ok=False, error=emsg, platform=platform)
             if dbg is not None:
                 out["debug"] = dbg
             return jsonify(out)

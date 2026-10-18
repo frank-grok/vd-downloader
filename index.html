@@ -50,6 +50,18 @@ padding:8px 16px;font-size:.9rem;cursor:pointer}
 footer{text-align:center;color:var(--dim);font-size:.78rem;margin-top:8px}
 
 </style>
+<!--BM-START-->
+<style>
+.bm-desc{font-size:.88rem;color:var(--dim);margin:10px 0}
+#bmLink{display:inline-block;background:#e60023;color:#fff!important;text-decoration:none;
+font-weight:700;border-radius:12px;padding:13px 22px;margin:4px 8px 4px 0;font-size:1rem}
+.bm-hint{font-size:.8rem;color:var(--dim)}
+#bmCopy{margin-top:10px;width:100%;background:#222;border:1px solid var(--line);color:var(--txt);
+border-radius:12px;padding:12px;font-size:.95rem;cursor:pointer}
+.bm-steps{margin:12px 0 0 20px;font-size:.88rem;color:var(--dim);line-height:1.7}
+.bm-steps b{color:var(--txt)}
+</style>
+<!--BM-END-->
 </head>
 <body>
 <div class="wrap">
@@ -101,13 +113,29 @@ footer{text-align:center;color:var(--dim);font-size:.78rem;margin-top:8px}
     </div>
   </section>
 
+<!--BM-START-->
+  <details class="card settings" id="bmSection">
+    <summary>📕 RedNote bookmarklet — အမြဲရတဲ့နည်း</summary>
+    <p class="bm-desc">server က RedNote မရတဲ့အခါ ဒီနည်းသုံး — မင်း browser ကနေ တိုက်ရိုက်ဆွဲတာ, block မခံရဘူး:</p>
+    <a id="bmLink" href="javascript:(function%20()%20%7B%20var%20m%20=%20location.href.match(/(?:explore%7Cdiscovery%5C/item)%5C/(%5Ba-f0-9%5D+)/);%20if%20(!m)%20%7B%20alert('%E5%85%88%E6%89%93%E5%BC%80%E5%B0%8F%E7%BA%A2%E4%B9%A6%E7%AC%94%E8%AE%B0%E9%A1%B5%E9%9D%A2%E5%86%8D%E7%82%B9%E6%88%91');%20return;%20%7D%20var%20id%20=%20m%5B1%5D,%20st%20=%20window.__INITIAL_STATE__;%20if%20(!st)%20%7B%20alert('%E9%A1%B5%E9%9D%A2%E8%BF%98%E6%B2%A1%E5%8A%A0%E8%BD%BD%E5%AE%8C%EF%BC%8C%E7%AD%89%E5%87%A0%E7%A7%92%E5%86%8D%E7%82%B9');%20return;%20%7D%20var%20map%20=%20((st.note%20%7C%7C%20%7B%7D).noteDetailMap%20%7C%7C%20%7B%7D)%5Bid%5D;%20var%20note%20=%20map%20&&%20map.note;%20if%20(!note)%20%7B%20alert('%E6%B2%A1%E8%AF%BB%E5%88%B0%E7%AC%94%E8%AE%B0%E6%95%B0%E6%8D%AE%EF%BC%8C%E5%88%B7%E6%96%B0%E9%A1%B5%E9%9D%A2%E5%86%8D%E8%AF%95');%20return;%20%7D%20var%20title%20=%20String(note.title%20%7C%7C%20note.desc%20%7C%7C%20'rednote').slice(0,%2060);%20var%20old%20=%20document.getElementById('xhs-dl-panel');%20if%20(old)%20old.remove();%20var%20d%20=%20document.createElement('div');%20d.id%20=%20'xhs-dl-panel';%20d.style.cssText%20=%20'position:fixed;top:12px;left:12px;right:12px;z-index:999999;background:#16161a;color:#fff;padding:16px;border-radius:14px;font-family:sans-serif;font-size:15px;max-height:82vh;overflow:auto;box-shadow:0%206px%2030px%20rgba(0,0,0,.6);';%20var%20h%20=%20'%3Cdiv%20style=%22display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;%22%3E'%20+%20'%3Cb%3E%F0%9F%93%95%20'%20+%20title.replace(/%3C/g,%20'&lt;')%20+%20'%3C/b%3E'%20+%20'%3Cbutton%20id=%22xhs-dl-x%22%20style=%22background:#333;color:#fff;border:0;border-radius:8px;padding:6px%2012px;font-size:15px;%22%3E%E2%9C%95%3C/button%3E%3C/div%3E';%20var%20streams%20=%20(note.video%20&&%20note.video.media%20&&%20note.video.media.stream)%20%7C%7C%20%7B%7D;%20var%20arr%20=%20Object.keys(streams).map(function%20(k)%20%7B%20var%20s%20=%20streams%5Bk%5D%20%7C%7C%20%7B%7D;%20return%20%7B%20h:%20s.height%20%7C%7C%200,%20sz:%20s.size%20%7C%7C%200,%20u:%20s.masterUrl%20%7C%7C%20(s.backupUrls%20&&%20s.backupUrls%5B0%5D)%20%7D;%20%7D).filter(function%20(x)%20%7B%20return%20x.u;%20%7D).sort(function%20(a,%20b)%20%7B%20return%20(b.h%20-%20a.h)%20%7C%7C%20(b.sz%20-%20a.sz);%20%7D);%20if%20(arr.length)%20%7B%20arr.forEach(function%20(s,%20i)%20%7B%20h%20+=%20'%3Ca%20href=%22'%20+%20s.u%20+%20'%22%20target=%22_blank%22%20style=%22display:block;background:#e60023;color:#fff;text-decoration:none;border-radius:10px;padding:13px;margin:8px%200;text-align:center;font-weight:bold;%22%3E%E2%AC%87%EF%B8%8F%20%E8%A7%86%E9%A2%91'%20+%20(s.h%20?%20'%20'%20+%20s.h%20+%20'p'%20:%20'')%20+%20(i%20===%200%20?%20'%EF%BC%88%E6%8E%A8%E8%8D%90%EF%BC%89'%20:%20'')%20+%20'%3C/a%3E';%20%7D);%20h%20+=%20'%3Cdiv%20style=%22font-size:12px;color:#999;margin-bottom:4px;%22%3E%E7%82%B9%E6%8C%89%E9%92%AE%E6%96%B0%E6%A0%87%E7%AD%BE%E6%89%93%E5%BC%80%20%E2%86%92%20%E5%8F%B3%E4%B8%8A%E8%A7%92%20%E2%8B%AE%20%E2%86%92%20%E4%B8%8B%E8%BD%BD%3C/div%3E';%20%7D%20var%20imgs%20=%20note.imageList%20%7C%7C%20%5B%5D;%20if%20(imgs.length)%20%7B%20h%20+=%20'%3Cdiv%20style=%22margin-top:6px;%22%3E%F0%9F%96%BC%EF%B8%8F%20%E5%85%B1%20'%20+%20imgs.length%20+%20'%20%E5%BC%A0%E5%8E%9F%E5%9B%BE%EF%BC%9A%3C/div%3E%3Cdiv%3E';%20imgs.forEach(function%20(im,%20i)%20%7B%20var%20u%20=%20im.urlDefault%20%7C%7C%20im.urlPre;%20if%20(u)%20h%20+=%20'%3Ca%20href=%22'%20+%20u%20+%20'%22%20target=%22_blank%22%20style=%22display:inline-block;margin:5px%208px%205px%200;color:#4da3ff;%22%3E%E5%9B%BE'%20+%20(i%20+%201)%20+%20'%3C/a%3E';%20%7D);%20h%20+=%20'%3C/div%3E';%20%7D%20if%20(!arr.length%20&&%20!imgs.length)%20h%20+=%20'%3Cdiv%3E%E6%B2%A1%E6%89%BE%E5%88%B0%E5%8F%AF%E4%B8%8B%E8%BD%BD%E7%9A%84%E5%86%85%E5%AE%B9%3C/div%3E';%20d.innerHTML%20=%20h;%20document.body.appendChild(d);%20document.getElementById('xhs-dl-x').onclick%20=%20function%20()%20%7B%20d.remove();%20%7D;%20%7D)();">📕 红书下载</a>
+    <span class="bm-hint">← MacBook: ဒါကို bookmarks bar ဆီဆွဲ</span>
+    <button id="bmCopy">📋 ကုဒ်ကူး (ဖုန်း)</button>
+    <textarea id="bmCode" style="position:absolute;left:-9999px;top:0;" readonly>(function () { var m = location.href.match(/(?:explore|discovery\/item)\/([a-f0-9]+)/); if (!m) { alert('先打开小红书笔记页面再点我'); return; } var id = m[1], st = window.__INITIAL_STATE__; if (!st) { alert('页面还没加载完，等几秒再点'); return; } var map = ((st.note || {}).noteDetailMap || {})[id]; var note = map &amp;&amp; map.note; if (!note) { alert('没读到笔记数据，刷新页面再试'); return; } var title = String(note.title || note.desc || 'rednote').slice(0, 60); var old = document.getElementById('xhs-dl-panel'); if (old) old.remove(); var d = document.createElement('div'); d.id = 'xhs-dl-panel'; d.style.cssText = 'position:fixed;top:12px;left:12px;right:12px;z-index:999999;background:#16161a;color:#fff;padding:16px;border-radius:14px;font-family:sans-serif;font-size:15px;max-height:82vh;overflow:auto;box-shadow:0 6px 30px rgba(0,0,0,.6);'; var h = '&lt;div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"&gt;' + '&lt;b&gt;📕 ' + title.replace(/&lt;/g, '&amp;lt;') + '&lt;/b&gt;' + '&lt;button id="xhs-dl-x" style="background:#333;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:15px;"&gt;✕&lt;/button&gt;&lt;/div&gt;'; var streams = (note.video &amp;&amp; note.video.media &amp;&amp; note.video.media.stream) || {}; var arr = Object.keys(streams).map(function (k) { var s = streams[k] || {}; return { h: s.height || 0, sz: s.size || 0, u: s.masterUrl || (s.backupUrls &amp;&amp; s.backupUrls[0]) }; }).filter(function (x) { return x.u; }).sort(function (a, b) { return (b.h - a.h) || (b.sz - a.sz); }); if (arr.length) { arr.forEach(function (s, i) { h += '&lt;a href="' + s.u + '" target="_blank" style="display:block;background:#e60023;color:#fff;text-decoration:none;border-radius:10px;padding:13px;margin:8px 0;text-align:center;font-weight:bold;"&gt;⬇️ 视频' + (s.h ? ' ' + s.h + 'p' : '') + (i === 0 ? '（推荐）' : '') + '&lt;/a&gt;'; }); h += '&lt;div style="font-size:12px;color:#999;margin-bottom:4px;"&gt;点按钮新标签打开 → 右上角 ⋮ → 下载&lt;/div&gt;'; } var imgs = note.imageList || []; if (imgs.length) { h += '&lt;div style="margin-top:6px;"&gt;🖼️ 共 ' + imgs.length + ' 张原图：&lt;/div&gt;&lt;div&gt;'; imgs.forEach(function (im, i) { var u = im.urlDefault || im.urlPre; if (u) h += '&lt;a href="' + u + '" target="_blank" style="display:inline-block;margin:5px 8px 5px 0;color:#4da3ff;"&gt;图' + (i + 1) + '&lt;/a&gt;'; }); h += '&lt;/div&gt;'; } if (!arr.length &amp;&amp; !imgs.length) h += '&lt;div&gt;没找到可下载的内容&lt;/div&gt;'; d.innerHTML = h; document.body.appendChild(d); document.getElementById('xhs-dl-x').onclick = function () { d.remove(); }; })();</textarea>
+    <ol class="bm-steps">
+      <li>Chrome မှာ bookmark အသစ်တစ်ခု လုပ် (⋮ → ⭐ Add)</li>
+      <li>အဲ့ bookmark ကို <b>Edit</b> → URL နေရာမှာ အပေါ်က <b>📋 ကုဒ်ကူး</b> နှိပ်ပြီးရလာတာကို paste → နာမည် "📕红书下载" ပေး → Save</li>
+      <li>RedNote link ကို Chrome မှာ ဖွင့် (note အပြည့်ပေါ်လာအောင် စောင့်)</li>
+      <li>Address bar မှာ "📕红书下载" လို့ရိုက် → bookmark ကိုနှိပ် → download panel ပေါ်လာမယ် → video နှိပ် → ⋮ → Download</li>
+    </ol>
+  </details>
+<!--BM-END-->
   <details class="card settings">
     <summary>⚙️ ဆက်တင်</summary>
     <label class="lbl">Token (ဆာဗာမှာ DL_TOKEN ထားရင်)</label>
     <input id="token" type="password" placeholder="token…" autocomplete="off">
   </details>
 
-  <footer>ကိုယ်ပိုင်သုံးဖို့ပါ — သူများဟာ ခိုးယူဖြန့်တာမျိုး မလုပ်ပါနဲ့ ✌️</footer>
+  <footer>ကိုယ်ပိုင်သုံးဖို့ပါ — သူများဟာ ခိုးယူဖြန့်တာမျိုး မလုပ်ပါနဲ့ ✌️<br><span id="ver" style="opacity:.6"></span></footer>
 </div>
 <script>
 const $ = id => document.getElementById(id);
@@ -124,7 +152,7 @@ async function ping() {
   const el = $('srv');
   try {
     const r = await fetch('health', {cache: 'no-store'});
-    if (r.ok) { el.textContent = 'ဆာဗာ အဆင်သင့် ✅'; el.className = 'srv ok'; return; }
+    if (r.ok) { el.textContent = 'ဆာဗာ အဆင်သင့် ✅'; el.className = 'srv ok'; r.json().then(j => { if (j.v) document.getElementById('ver').textContent = 'v' + j.v; }).catch(()=>{}); return; }
     throw 0;
   } catch { el.textContent = 'ဆာဗာ နိုးနေတုန်း… ခဏစောင့် ⏳'; el.className = 'srv checking'; }
   setTimeout(ping, 8000);
@@ -217,5 +245,17 @@ dlBtn.onclick = () => { if (cur) location.href = dlUrl('api/dl'); };
 zipBtn.onclick = () => { if (cur) location.href = dlUrl('api/zip'); };
 
 </script>
+<!--BM-START-->
+<script>
+document.getElementById('bmCopy').onclick = async () => {
+  const t = document.getElementById('bmCode').value;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { const ta = document.getElementById('bmCode'); ta.select(); document.execCommand('copy'); }
+  const b = document.getElementById('bmCopy');
+  b.textContent = '✅ ကူးပြီးပြီ — bookmark URL မှာ paste လုပ်';
+  setTimeout(() => b.textContent = '📋 ကုဒ်ကူး (ဖုန်း)', 3000);
+};
+</script>
+<!--BM-END-->
 </body>
 </html>
