@@ -11,8 +11,13 @@ services:
       # Render dashboard → Environment → Add: DL_TOKEN = <ကိုယ်ကြိုက်တဲ့ စကားဝှက်>
       - key: DL_TOKEN
         value: ""
-      # RedNote/Douyin/Bilibili တို့ကို ယူပေးတဲ့ 解析 API (လိုရင် လဲလို့ရတယ်)
-      - key: PARSE_API
-        value: https://www.yhqsj.cn/api/short_videos.php?url=
+      # 解析 API chain — ကော်မာနဲ့ ခြား, တစ်ခုသေရင် နောက်တစ်ခုစမ်း
+      - key: PARSE_APIS
+        value: https://qsy.aiwyuw.cn/api/short_videos.php?url=,https://www.yhqsj.cn/api/short_videos.php?url=
+      # YouTube bot-check အသေချာဆုံးရှောင်နည်း (optional):
+      # Chrome "Get cookies.txt LOCALLY" extension နဲ့ youtube.com cookies ထုတ်
+      # → ဒီ env ရဲ့ value မှာ အဲ့ဖိုင်ထဲက စာသားအကုန် ကပ်
+      - key: YTDLP_COOKIES
+        value: ""
       - key: MAX_MB
         value: "500"

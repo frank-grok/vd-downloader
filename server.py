@@ -30,12 +30,32 @@ app = Flask(__name__)
 
 # ---------------------------------------------------------------- config
 DL_TOKEN = os.environ.get("DL_TOKEN", "").strip()
-PARSE_API = os.environ.get(
-    "PARSE_API",
+# parse API chain — တစ်ခုသေရင် နောက်တစ်ခုစမ်း (qsy အခု work, yhqsj backup)
+PARSE_APIS = [u.strip() for u in os.environ.get(
+    "PARSE_APIS",
+    "https://qsy.aiwyuw.cn/api/short_videos.php?url=,"
     "https://www.yhqsj.cn/api/short_videos.php?url=",
-).strip()
+).split(",") if u.strip()]
 MAX_MB = int(os.environ.get("MAX_MB", "500"))
 RESOLVE_TIMEOUT = 90
+
+# YouTube cookies (optional) — bot-check ကို အသေချာဆုံးရှောင်နည်း:
+# Chrome "Get cookies.txt LOCALLY" extension နဲ့ youtube.com cookies ထုတ်
+# → Render ရဲ့ YTDLP_COOKIES env မှာ ကပ်
+COOKIE_FILE = "/tmp/ytdlp_cookies.txt"
+
+
+def _setup_cookies():
+    txt = os.environ.get("YTDLP_COOKIES", "").strip()
+    if txt and ("cookie" in txt.lower() or txt.startswith("#")):
+        try:
+            with open(COOKIE_FILE, "w", encoding="utf-8") as f:
+                f.write(txt + "\n")
+        except OSError:
+            pass
+
+
+_setup_cookies()
 UA = ("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36")
 
@@ -152,14 +172,17 @@ def pick(d, *keys):
 
 def ytdlp_extra():
     extra = os.environ.get("YTDLP_EXTRA_ARGS", "").strip()
-    return extra.split() if extra else []
+    args = extra.split() if extra else []
+    if os.path.exists(COOKIE_FILE):
+        args += ["--cookies", COOKIE_FILE]
+    return args
 
 
 # ---------------------------------------------------------------- parse-API engine
-def api_parse(url):
-    """ပြင်ပ 解析 API ကို ခေါ် → (info|None, status, api_msg)."""
+def api_parse_one(base, url):
+    """API တစ်ခုတည်းကို ခေါ် → (info|None, status, api_msg)."""
     try:
-        r = requests.get(PARSE_API + quote(url, safe=""),
+        r = requests.get(base + quote(url, safe=""),
                          timeout=RESOLVE_TIMEOUT,
                          headers={"User-Agent": UA})
         j = r.json()
@@ -171,15 +194,18 @@ def api_parse(url):
     if code not in (0, 200) or not data or isinstance(data, list):
         return None, "api_fail", msg
     if isinstance(data, dict):
-        video_url = pick(data, "url", "video_url", "play_url", "videoUrl",
-                         "nwm_url", "download_url")
+        video_url = pick(data, "url", "video", "video_url", "play_url",
+                         "videoUrl", "nwm_url", "download_url")
         backups = data.get("video_backup") or data.get("videos") or []
         if isinstance(backups, dict):
             backups = list(backups.values())
         images = data.get("images") or data.get("image_list") or data.get("pics") or []
+        author = pick(data, "author", "nickname", "uploader") or ""
+        if isinstance(author, dict):
+            author = pick(author, "name", "nickname", "id") or ""
         info = {
-            "title": pick(data, "title", "desc", "description") or "video",
-            "author": pick(data, "author", "nickname", "uploader") or "",
+            "title": pick(data, "title", "desc", "caption", "description") or "video",
+            "author": author,
             "cover": pick(data, "cover", "cover_url", "thumbnail", "pic") or "",
             "duration": data.get("duration") or 0,
             "video_url": video_url,
@@ -193,16 +219,55 @@ def api_parse(url):
     return None, "api_fail", msg
 
 
+def api_parse(url):
+    """chain ထဲက API တွေ အစဉ်လိုက်စမ်း → (info|None, status, msg, base)."""
+    last = ("unreachable", "", "")
+    for base in PARSE_APIS:
+        info, status, msg = api_parse_one(base, url)
+        if info:
+            return info, status, msg, base
+        last = (status, msg, base)
+    return None, last[0], last[1], last[2]
+
+
 def api_parse_retry(url, resolved_url):
     """resolved URL နဲ့မရရင် မူရင်း URL နဲ့ တစ်ခါထပ်စမ်း."""
-    info, status, msg = api_parse(resolved_url)
+    info, status, msg, base = api_parse(resolved_url)
     if info:
         return info, status, msg, resolved_url
     if resolved_url != url:
-        info2, status2, msg2 = api_parse(url)
+        info2, status2, msg2, base2 = api_parse(url)
         if info2:
             return info2, status2, msg2, url
     return None, status, msg, resolved_url
+
+
+def yt_shorts_variant(url):
+    """API က /shorts/ format ပဲရလို့ youtu.be/watch URL ကို shorts ပုံစံပြောင်း."""
+    if "/shorts/" in url:
+        return None
+    m = re.search(r"[?&]v=([\w-]{6,})", url) or re.search(r"youtu\.be/([\w-]{6,})", url)
+    return f"https://www.youtube.com/shorts/{m.group(1)}" if m else None
+
+
+def api_success(info, platform, used_url, qualities=None, dbg=None):
+    kind = "video" if info["video_url"] else "images"
+    if qualities is None:
+        quals = []
+        if kind == "video":
+            quals = [{"id": "best", "label": "အကောင်းဆုံး", "size": 0}]
+            for i, b in enumerate(info["backups"][:3]):
+                quals.append({"id": f"alt{i}", "label": f"ရွေးချယ်စရာ {i+1}", "size": 0})
+    else:
+        quals = qualities
+    out = dict(ok=True, engine="api", platform=platform, kind=kind,
+               title=info["title"], author=info["author"],
+               cover=info["cover"], duration=info["duration"],
+               qualities=quals, image_count=len(info["images"]),
+               url=used_url)
+    if dbg is not None:
+        out["debug"] = dbg
+    return jsonify(out)
 
 
 # ---------------------------------------------------------------- yt-dlp engine
@@ -315,41 +380,34 @@ def resolve():
             dbg.update(api_status=status, api_msg=api_msg[:120], via=used)
         if not info:
             err_key = "api_down" if status == "unreachable" else "not_found"
-            resp = jsonify(ok=False, error=ERR[err_key], platform=platform)
+            out = dict(ok=False, error=ERR[err_key], platform=platform)
             if dbg is not None:
-                resp = jsonify(ok=False, error=ERR[err_key], platform=platform, debug=dbg)
-            return resp
-        kind = "video" if info["video_url"] else "images"
-        quals = []
-        if kind == "video":
-            quals = [{"id": "best", "label": "အကောင်းဆုံး", "size": 0}]
-            for i, b in enumerate(info["backups"][:3]):
-                quals.append({"id": f"alt{i}", "label": f"ရွေးချယ်စရာ {i+1}", "size": 0})
-        out = dict(ok=True, engine="api", platform=platform, kind=kind,
-                   title=info["title"], author=info["author"],
-                   cover=info["cover"], duration=info["duration"],
-                   qualities=quals, image_count=len(info["images"]),
-                   url=used)
-        if dbg is not None:
-            out["debug"] = dbg
-        return jsonify(out)
+                out["debug"] = dbg
+            return jsonify(out)
+        return api_success(info, platform, used, dbg=dbg)
+
+    if domain in YT_DOMAINS:
+        # YouTube: Render IP က yt-dlp ကို bot-check လုပ်တတ်လို့ API ကို အရင်စမ်း
+        # (API က /shorts/ format ပဲရလို့ variant ပါထည့်စမ်း)
+        cands = [orig_url]
+        sv = yt_shorts_variant(orig_url)
+        if sv:
+            cands.append(sv)
+        for cand in cands:
+            ainfo, status, api_msg, _b = api_parse(cand)
+            if dbg is not None:
+                dbg.update(api_status=status, api_msg=api_msg[:120], via=cand)
+            if ainfo and ainfo["video_url"]:
+                return api_success(ainfo, platform, cand, dbg=dbg)
 
     info, err = ytdlp_json(url)
-    if err and domain in YT_DOMAINS:
-        # YouTube fallback — parse API ကနေတစ်ဆင့်
+    if err:
+        # yt-dlp မရရင် parse API ကို fallback စမ်း
         ainfo, status, api_msg, used = api_parse_retry(orig_url, url)
         if dbg is not None:
             dbg.update(ytdlp_err=err, api_status=status, api_msg=api_msg[:120])
         if ainfo and ainfo["video_url"]:
-            out = dict(ok=True, engine="api", platform=platform, kind="video",
-                       title=ainfo["title"], author=ainfo["author"],
-                       cover=ainfo["cover"], duration=ainfo["duration"],
-                       qualities=[{"id": "best", "label": "အကောင်းဆုံး", "size": 0}],
-                       image_count=0, url=used)
-            if dbg is not None:
-                out["debug"] = dbg
-            return jsonify(out)
-    if err:
+            return api_success(ainfo, platform, used, dbg=dbg)
         out = dict(ok=False, error=ERR.get(err, ERR["parse_fail"]), platform=platform)
         if dbg is not None:
             out["debug"] = dbg
@@ -406,29 +464,48 @@ def dl():
         return jsonify(ok=False, error=ERR["bad_url"]), 400
 
     domain = base_domain(host_of(url))
+
+    def try_api_dl():
+        cands = [url]
+        sv = yt_shorts_variant(url)
+        if sv:
+            cands.append(sv)
+        for cand in cands:
+            info, status, _msg, _base = api_parse(cand)
+            if status == "unreachable":
+                return jsonify(ok=False, error=ERR["api_down"]), 502
+            if not info or not info["video_url"]:
+                continue
+            vurl = info["video_url"]
+            if q.startswith("alt"):
+                try:
+                    vurl = info["backups"][int(q[3:])] or vurl
+                except (IndexError, ValueError):
+                    pass
+            return stream_api_video(vurl, title or info["title"], cand)
+        return None
+
     if domain in API_ENGINE:
-        info, status, _msg = api_parse(url)
-        if status == "unreachable":
-            return jsonify(ok=False, error=ERR["api_down"]), 502
-        if not info or not info["video_url"]:
+        res = try_api_dl()
+        if res is None:
             return jsonify(ok=False, error=ERR["not_found"]), 502
-        vurl = info["video_url"]
-        if q.startswith("alt"):
-            try:
-                vurl = info["backups"][int(q[3:])] or vurl
-            except (IndexError, ValueError):
-                pass
-        return stream_api_video(vurl, title or info["title"], url)
+        return res
+
+    if domain in YT_DOMAINS:
+        # YouTube: API ကို အရင်စမ်း (Render IP bot-check ခံရတတ်လို့)
+        res = try_api_dl()
+        if res is not None and not (isinstance(res, tuple) and res[1] >= 400):
+            return res
+        # မရရင် yt-dlp ဆက်လုပ်
 
     # yt-dlp engine — file ဒေါင်းပြီးမှ ပြန် serve လုပ်
     tmpdir = tempfile.mkdtemp(prefix="vddl_")
     path, err = ytdlp_download(url, q, tmpdir)
-    if err and domain in YT_DOMAINS:
-        # YouTube fallback — parse API直链 ကို stream လုပ်
-        info, status, _msg = api_parse(url)
-        if info and info["video_url"]:
-            return stream_api_video(info["video_url"], title, url)
     if err:
+        # နောက်ဆုံး fallback — parse API
+        res = try_api_dl()
+        if res is not None and not (isinstance(res, tuple) and res[1] >= 400):
+            return res
         return jsonify(ok=False, error=ERR.get(err, ERR["parse_fail"])), 502
     fname = safe_filename(title)
     resp = send_file(path, mimetype="video/mp4", as_attachment=True,
@@ -455,7 +532,9 @@ def zip_images():
     title = (request.args.get("t") or "images").strip()
     if not valid_url(url):
         return jsonify(ok=False, error=ERR["bad_url"]), 400
-    info = api_parse(url)
+    info, status, _msg, _base = api_parse(url)
+    if status == "unreachable":
+        return jsonify(ok=False, error=ERR["api_down"]), 502
     if not info or not info["images"]:
         return jsonify(ok=False, error=ERR["not_found"]), 502
     buf = io.BytesIO()
